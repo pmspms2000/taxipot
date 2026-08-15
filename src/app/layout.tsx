@@ -9,6 +9,7 @@ export const metadata: Metadata = {
   description:
     "성균관대 축제·심야 귀가 택시 동승자를 빠르게 찾고 택시비를 1/N로 나누세요. 율전↔명륜 택시팟 매칭 서비스.",
   keywords: ["택시팟", "성균관대", "택시 동승", "율전", "명륜", "N빵"],
+  verification: { google: "c2raSW07L-IVLHpc0_wERrk2F7XDMGOu4ZkCnS6AWqQ" },
   openGraph: {
     title: "택시팟 — 성균관대 택시 동승 매칭",
     description: "같은 시간, 같은 방향 동승자를 5분 안에. 택시비는 1/N로.",
