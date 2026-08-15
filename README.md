@@ -1,36 +1,31 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# 🚕 택시팟
 
-## Getting Started
+성균관대 축제·심야 귀가 택시 동승자 매칭 + 택시비 1/N 정산 웹 서비스.
 
-First, run the development server:
+율전↔명륜 이동 시 같은 시간·같은 방향 동승자를 에브리타임보다 빠르게 찾고,
+도착 후 택시비를 깔끔하게 나눕니다.
+
+**신인류 AI 사피엔스 경험디자인** 기말 프로젝트 — 계획·가설·KPI는 [docs/PLAN.md](docs/PLAN.md) 참고.
+
+## 스택
+
+- Next.js 16 (App Router) + Tailwind CSS
+- Supabase (DB) · Vercel (배포) · GA4 (측정) · Google Search Console (검색)
+
+## 로컬 실행
 
 ```bash
+npm install
+cp .env.example .env.local   # Supabase URL/키, GA ID 입력
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+DB 스키마는 `supabase/schema.sql`을 Supabase SQL Editor에서 실행.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## 반복(iteration) 현황
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
-
-## Learn More
-
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+| 반복 | 가설 | 상태 |
+|---|---|---|
+| 1 | 구조화된 팟 보드가 에브리타임 자유 글보다 매칭이 빠르다 | 🚧 개발 중 |
+| 2 | 1/N 정산 도우미가 팟 완료율을 높인다 | 예정 |
+| 3 | 반복 1·2 데이터 기반 결정 (신뢰 vs 유동성) | 예정 |
