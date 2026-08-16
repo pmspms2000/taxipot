@@ -16,6 +16,17 @@ export type PotWithCount = Pot & { pot_members: { count: number }[] };
 
 export type Member = { id: string; nickname: string; joined_at: string };
 
+export type Settlement = {
+  id: string;
+  pot_id: string;
+  total_fare: number;
+  member_count: number;
+  per_person: number;
+  toss_id: string | null;
+  creator_nick: string;
+  created_at: string;
+};
+
 export const DIRECTIONS: Record<
   Direction,
   { label: string; pickups: string[]; dropoffs: string[] }

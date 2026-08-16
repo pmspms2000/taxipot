@@ -3,33 +3,55 @@
 import { use, useCallback, useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import { gaEvent } from "@/lib/gtag";
-import { DIRECTIONS, formatDepartAt, type Member, type Pot } from "@/lib/types";
+import {
+  DIRECTIONS,
+  formatDepartAt,
+  type Member,
+  type Pot,
+  type Settlement,
+} from "@/lib/types";
+import { estimateFare, formatWon, perPerson } from "@/lib/fare";
 
 export default function PotPage(props: PageProps<"/pot/[id]">) {
   const { id } = use(props.params);
   const [pot, setPot] = useState<Pot | null>(null);
   const [members, setMembers] = useState<Member[]>([]);
+  const [settlement, setSettlement] = useState<Settlement | null>(null);
   const [loading, setLoading] = useState(true);
   const [nick, setNick] = useState("");
   const [joining, setJoining] = useState(false);
   const [joinedAs, setJoinedAs] = useState("");
   const [error, setError] = useState("");
   const [copied, setCopied] = useState(false);
+  // 정산 폼
+  const [totalFare, setTotalFare] = useState("");
+  const [tossId, setTossId] = useState("");
+  const [settling, setSettling] = useState(false);
+  const [settleError, setSettleError] = useState("");
+  const [msgCopied, setMsgCopied] = useState(false);
 
   const load = useCallback(async () => {
     if (!supabase) return;
-    const [{ data: potData }, { data: memberData }] = await Promise.all([
-      supabase.from("pots").select("*").eq("id", id).single(),
-      supabase.from("pot_members").select("*").eq("pot_id", id).order("joined_at"),
-    ]);
+    const [{ data: potData }, { data: memberData }, { data: settleData }] =
+      await Promise.all([
+        supabase.from("pots").select("*").eq("id", id).single(),
+        supabase.from("pot_members").select("*").eq("pot_id", id).order("joined_at"),
+        supabase
+          .from("settlements")
+          .select("*")
+          .eq("pot_id", id)
+          .order("created_at", { ascending: false })
+          .limit(1),
+      ]);
     setPot(potData as Pot | null);
     setMembers((memberData as Member[]) ?? []);
+    setSettlement((settleData as Settlement[])?.[0] ?? null);
     setLoading(false);
   }, [id]);
 
   useEffect(() => {
     load();
-    // 10초마다 갱신 — 새 참여자 실시간 반영 (MVP 폴링)
+    // 10초마다 갱신 — 새 참여자/정산 실시간 반영 (MVP 폴링)
     const t = setInterval(load, 10_000);
     return () => clearInterval(t);
   }, [load]);
@@ -63,6 +85,51 @@ export default function PotPage(props: PageProps<"/pot/[id]">) {
     load();
   }
 
+  async function handleSettle(e: React.FormEvent) {
+    e.preventDefault();
+    if (!supabase || !pot) return;
+    const total = parseInt(totalFare.replace(/[^0-9]/g, ""), 10);
+    if (!total || total < 1000 || total > 200000) {
+      setSettleError("택시비를 원 단위 숫자로 입력해주세요 (예: 38000)");
+      return;
+    }
+    setSettling(true);
+    setSettleError("");
+    const { error: err } = await supabase.from("settlements").insert({
+      pot_id: id,
+      total_fare: total,
+      member_count: members.length,
+      per_person: perPerson(total, members.length),
+      toss_id: tossId.trim() || null,
+      creator_nick: joinedAs || "결제자",
+    });
+    if (err) {
+      setSettleError("정산 생성에 실패했어요. 다시 시도해주세요.");
+      setSettling(false);
+      return;
+    }
+    gaEvent("settlement_create", { total, count: members.length });
+    setSettling(false);
+    load();
+  }
+
+  function settlementMessage(s: Settlement): string {
+    const lines = [
+      "🚕 택시팟 정산",
+      `총 ${formatWon(s.total_fare)} ÷ ${s.member_count}명 = 인당 ${formatWon(s.per_person)}`,
+    ];
+    if (s.toss_id) lines.push(`토스로 보내기 → https://toss.me/${s.toss_id}/${s.per_person}`);
+    lines.push(`${window.location.href}`);
+    return lines.join("\n");
+  }
+
+  async function copySettlement(s: Settlement) {
+    await navigator.clipboard.writeText(settlementMessage(s));
+    gaEvent("settlement_copy");
+    setMsgCopied(true);
+    setTimeout(() => setMsgCopied(false), 1500);
+  }
+
   async function copyLink() {
     await navigator.clipboard.writeText(window.location.href);
     setCopied(true);
@@ -76,6 +143,9 @@ export default function PotPage(props: PageProps<"/pot/[id]">) {
 
   const full = members.length >= pot.capacity;
   const joined = Boolean(joinedAs);
+  const fare = estimateFare(pot.direction, pot.dropoff);
+  const inputCls =
+    "w-full rounded-xl border border-zinc-700 bg-zinc-900 px-3 py-2.5 text-sm focus:border-yellow-400 focus:outline-none";
 
   return (
     <div className="space-y-5">
@@ -87,6 +157,10 @@ export default function PotPage(props: PageProps<"/pot/[id]">) {
           {formatDepartAt(pot.depart_at)} · {pot.pickup_spot} 출발
         </h1>
         <p className="mt-1 text-zinc-400">↓ {pot.dropoff} 하차</p>
+        <p className="mt-1.5 text-sm text-emerald-400/90">
+          💰 예상 요금 약 {formatWon(fare)} → {pot.capacity}명이면 인당 약{" "}
+          {formatWon(perPerson(fare, pot.capacity))}
+        </p>
         <div className="mt-3 flex items-center gap-2">
           <span
             className={`rounded-full px-2.5 py-1 text-xs font-bold ${
@@ -130,7 +204,7 @@ export default function PotPage(props: PageProps<"/pot/[id]">) {
           <p className="mt-1 text-zinc-300">
             출발 시간에 맞춰 <b>{pot.pickup_spot}</b>에서 만나세요.
           </p>
-          {pot.contact && (
+          {pot.contact ? (
             <a
               href={pot.contact}
               target="_blank"
@@ -139,6 +213,11 @@ export default function PotPage(props: PageProps<"/pot/[id]">) {
             >
               💬 오픈채팅 입장하기
             </a>
+          ) : (
+            <p className="mt-2 rounded-lg bg-zinc-800/60 px-3 py-2 text-xs text-zinc-400">
+              이 팟은 오픈채팅이 없어요. 출발 5분 전까지 도착해서 참여자 닉네임으로 서로
+              확인하세요. 이 페이지를 열어두면 참여 현황이 실시간 갱신됩니다.
+            </p>
           )}
         </section>
       ) : full ? (
@@ -152,7 +231,7 @@ export default function PotPage(props: PageProps<"/pot/[id]">) {
             onChange={(e) => setNick(e.target.value)}
             placeholder="닉네임 입력"
             maxLength={12}
-            className="w-full rounded-xl border border-zinc-700 bg-zinc-900 px-3 py-2.5 text-sm focus:border-yellow-400 focus:outline-none"
+            className={inputCls}
             required
           />
           {error && <p className="text-sm text-red-400">{error}</p>}
@@ -165,6 +244,76 @@ export default function PotPage(props: PageProps<"/pot/[id]">) {
           </button>
         </form>
       )}
+
+      {/* 정산: 결과가 있으면 모두에게, 없으면 참여자에게 생성 폼 */}
+      {settlement ? (
+        <section className="rounded-2xl border border-sky-500/30 bg-sky-500/10 p-4">
+          <h2 className="text-sm font-bold text-sky-300">💸 정산 완료</h2>
+          <p className="mt-2 text-lg font-bold">
+            총 {formatWon(settlement.total_fare)} ÷ {settlement.member_count}명 ={" "}
+            <span className="text-sky-300">인당 {formatWon(settlement.per_person)}</span>
+          </p>
+          <p className="mt-0.5 text-xs text-zinc-400">
+            결제: {settlement.creator_nick} · 결제자에게 보내주세요
+          </p>
+          <div className="mt-3 flex flex-wrap gap-2">
+            {settlement.toss_id && (
+              <a
+                href={`https://toss.me/${settlement.toss_id}/${settlement.per_person}`}
+                target="_blank"
+                rel="noreferrer"
+                className="rounded-xl bg-sky-500 px-4 py-2 text-sm font-bold text-zinc-900 hover:bg-sky-400"
+              >
+                토스로 {formatWon(settlement.per_person)} 보내기
+              </a>
+            )}
+            <button
+              onClick={() => copySettlement(settlement)}
+              className="rounded-xl border border-sky-500/40 px-4 py-2 text-sm font-bold text-sky-300 hover:bg-sky-500/10"
+            >
+              {msgCopied ? "복사됨!" : "정산 메시지 복사"}
+            </button>
+          </div>
+        </section>
+      ) : joined ? (
+        <section className="rounded-2xl border border-zinc-800 bg-zinc-900 p-4">
+          <h2 className="text-sm font-bold text-zinc-300">💸 택시비 정산 (1/N)</h2>
+          <p className="mt-1 text-xs text-zinc-500">
+            도착 후 결제한 사람이 입력하세요. 인당 금액과 송금 링크가 자동으로 만들어져요.
+          </p>
+          <form onSubmit={handleSettle} className="mt-3 space-y-2">
+            <input
+              value={totalFare}
+              onChange={(e) => setTotalFare(e.target.value)}
+              placeholder={`총 택시비 (예: ${fare})`}
+              inputMode="numeric"
+              className={inputCls}
+            />
+            <input
+              value={tossId}
+              onChange={(e) => setTossId(e.target.value)}
+              placeholder="내 토스아이디 (선택 — toss.me 링크 생성)"
+              className={inputCls}
+            />
+            {totalFare && parseInt(totalFare.replace(/[^0-9]/g, ""), 10) >= 1000 && (
+              <p className="text-sm text-emerald-400">
+                → {members.length}명이 인당{" "}
+                {formatWon(
+                  perPerson(parseInt(totalFare.replace(/[^0-9]/g, ""), 10), members.length)
+                )}
+              </p>
+            )}
+            {settleError && <p className="text-sm text-red-400">{settleError}</p>}
+            <button
+              type="submit"
+              disabled={settling}
+              className="w-full rounded-xl bg-sky-500 py-2.5 text-sm font-bold text-zinc-900 hover:bg-sky-400 disabled:opacity-50"
+            >
+              {settling ? "만드는 중…" : "정산 만들기"}
+            </button>
+          </form>
+        </section>
+      ) : null}
     </div>
   );
 }

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import { gaEvent } from "@/lib/gtag";
@@ -35,6 +35,13 @@ export default function CreatePage() {
     setPickup(DIRECTIONS[d].pickups[0]);
     setDropoff(DIRECTIONS[d].dropoffs[0]);
   }
+
+  // 홈의 방향 필터에서 넘어온 경우 프리필 (?direction=...)
+  useEffect(() => {
+    const d = new URLSearchParams(window.location.search).get("direction");
+    if (d === "myeong_to_yul" || d === "yul_to_myeong") switchDirection(d);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -185,7 +192,10 @@ export default function CreatePage() {
 
       <div>
         <label className={labelCls} htmlFor="contact">
-          오픈채팅 링크 <span className="font-normal text-zinc-500">(선택 — 모이면 연락할 수단)</span>
+          오픈채팅 링크{" "}
+          <span className="font-normal text-zinc-500">
+            (권장 — 링크가 있어야 탑승 장소에서 서로 찾기 쉬워요)
+          </span>
         </label>
         <input
           id="contact"

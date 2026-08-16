@@ -10,6 +10,7 @@ import {
   type Direction,
   type PotWithCount,
 } from "@/lib/types";
+import { estimateFare, formatWon, perPerson } from "@/lib/fare";
 
 export default function HomePage() {
   const [pots, setPots] = useState<PotWithCount[]>([]);
@@ -83,8 +84,11 @@ export default function HomePage() {
         <div className="rounded-xl border border-zinc-800 py-10 text-center text-sm text-zinc-500">
           지금 열린 팟이 없어요.
           <br />
-          <Link href="/create" className="text-yellow-400 underline">
-            첫 팟을 만들어보세요!
+          <Link
+            href={filter === "all" ? "/create" : `/create?direction=${filter}`}
+            className="text-yellow-400 underline"
+          >
+            {filter === "all" ? "첫 팟을 만들어보세요!" : "이 방향으로 팟 만들기"}
           </Link>
         </div>
       ) : (
@@ -116,11 +120,25 @@ export default function HomePage() {
                     {formatDepartAt(pot.depart_at)} · {pot.pickup_spot} 출발
                   </p>
                   <p className="text-sm text-zinc-400">↓ {pot.dropoff} 하차</p>
+                  <p className="mt-1 text-xs text-emerald-400/90">
+                    💰 인당 약{" "}
+                    {formatWon(perPerson(estimateFare(pot.direction, pot.dropoff), pot.capacity))}{" "}
+                    (정원 {pot.capacity}명 기준)
+                  </p>
                 </Link>
               </li>
             );
           })}
         </ul>
+      )}
+
+      {filter !== "all" && filtered.length > 0 && (
+        <Link
+          href={`/create?direction=${filter}`}
+          className="block rounded-xl border border-dashed border-zinc-700 py-3 text-center text-sm text-zinc-400 hover:border-yellow-400/50 hover:text-yellow-300"
+        >
+          맞는 팟이 없나요? 이 방향으로 팟 만들기 →
+        </Link>
       )}
     </div>
   );
