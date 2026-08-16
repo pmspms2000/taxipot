@@ -21,6 +21,7 @@ export default function PotPage(props: PageProps<"/pot/[id]">) {
   const [nick, setNick] = useState("");
   const [joining, setJoining] = useState(false);
   const [joinedAs, setJoinedAs] = useState("");
+  const [userId, setUserId] = useState<string | null>(null);
   const [error, setError] = useState("");
   const [copied, setCopied] = useState(false);
   // 정산 폼
@@ -60,6 +61,15 @@ export default function PotPage(props: PageProps<"/pot/[id]">) {
     setJoinedAs(localStorage.getItem(`taxipot-joined-${id}`) ?? "");
   }, [id]);
 
+  useEffect(() => {
+    supabase?.auth.getSession().then(({ data }) => {
+      const u = data.session?.user;
+      if (!u) return;
+      setUserId(u.id);
+      setNick((prev) => prev || u.email?.split("@")[0] || "");
+    });
+  }, []);
+
   async function handleJoin(e: React.FormEvent) {
     e.preventDefault();
     if (!supabase || !pot || !nick.trim()) return;
@@ -67,7 +77,7 @@ export default function PotPage(props: PageProps<"/pot/[id]">) {
     setError("");
     const { error: joinError } = await supabase
       .from("pot_members")
-      .insert({ pot_id: id, nickname: nick.trim() });
+      .insert({ pot_id: id, nickname: nick.trim(), user_id: userId });
     if (joinError) {
       setError(
         joinError.code === "23505"
@@ -142,7 +152,9 @@ export default function PotPage(props: PageProps<"/pot/[id]">) {
     return <p className="py-10 text-center text-sm text-zinc-500">존재하지 않는 팟이에요.</p>;
 
   const full = members.length >= pot.capacity;
-  const joined = Boolean(joinedAs);
+  // 기기 간 연속성: localStorage(비로그인) 또는 로그인 user_id 매칭으로 "나"를 판별
+  const joined =
+    Boolean(joinedAs) || members.some((m) => userId && m.user_id === userId);
   const fare = estimateFare(pot.direction, pot.dropoff);
   const inputCls =
     "w-full rounded-xl border border-zinc-700 bg-zinc-900 px-3 py-2.5 text-sm focus:border-yellow-400 focus:outline-none";
@@ -187,12 +199,19 @@ export default function PotPage(props: PageProps<"/pot/[id]">) {
               className="flex items-center gap-2 rounded-xl border border-zinc-800 bg-zinc-900 px-4 py-2.5 text-sm"
             >
               <span>{m.nickname}</span>
+              {m.user_id && (
+                <span className="rounded bg-emerald-500/15 px-1.5 py-0.5 text-[10px] font-bold text-emerald-400">
+                  ✓ 학교 인증
+                </span>
+              )}
               {i === 0 && (
                 <span className="rounded bg-yellow-400/15 px-1.5 py-0.5 text-[10px] font-bold text-yellow-400">
                   팟장
                 </span>
               )}
-              {m.nickname === joinedAs && <span className="text-xs text-zinc-500">(나)</span>}
+              {(m.nickname === joinedAs || (userId && m.user_id === userId)) && (
+                <span className="text-xs text-zinc-500">(나)</span>
+              )}
             </li>
           ))}
         </ul>

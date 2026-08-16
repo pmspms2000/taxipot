@@ -14,7 +14,12 @@ export type Pot = {
 
 export type PotWithCount = Pot & { pot_members: { count: number }[] };
 
-export type Member = { id: string; nickname: string; joined_at: string };
+export type Member = {
+  id: string;
+  nickname: string;
+  joined_at: string;
+  user_id: string | null;
+};
 
 export type Settlement = {
   id: string;

@@ -29,6 +29,16 @@ export default function CreatePage() {
   const [contact, setContact] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
+  const [userId, setUserId] = useState<string | null>(null);
+
+  useEffect(() => {
+    supabase?.auth.getSession().then(({ data }) => {
+      const u = data.session?.user;
+      if (!u) return;
+      setUserId(u.id);
+      setNick((prev) => prev || u.email?.split("@")[0] || "");
+    });
+  }, []);
 
   function switchDirection(d: Direction) {
     setDirection(d);
@@ -65,6 +75,7 @@ export default function CreatePage() {
         capacity,
         creator_nick: nick.trim(),
         contact: contact.trim() || null,
+        user_id: userId,
       })
       .select()
       .single();
@@ -76,7 +87,10 @@ export default function CreatePage() {
     }
 
     // 개설자는 자동으로 첫 멤버
-    await supabase.from("pot_members").insert({ pot_id: pot.id, nickname: nick.trim() });
+    await supabase
+      .from("pot_members")
+      .insert({ pot_id: pot.id, nickname: nick.trim(), user_id: userId });
+    localStorage.setItem(`taxipot-joined-${pot.id}`, nick.trim());
     gaEvent("pot_create", { direction, capacity });
     router.push(`/pot/${pot.id}`);
   }

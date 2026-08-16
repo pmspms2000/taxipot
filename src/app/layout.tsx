@@ -3,6 +3,7 @@ import Script from "next/script";
 import Link from "next/link";
 import "./globals.css";
 import { GA_ID } from "@/lib/gtag";
+import AuthStatus from "@/components/AuthStatus";
 
 export const metadata: Metadata = {
   title: "택시팟 — 성균관대 택시 동승 매칭",
@@ -40,7 +41,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
             <Link href="/" className="text-lg font-bold tracking-tight">
               🚕 <span className="text-yellow-400">택시팟</span>
             </Link>
-            <span className="text-xs text-zinc-500">성균관대 택시 동승 매칭</span>
+            <AuthStatus />
           </div>
         </header>
         <main className="mx-auto w-full max-w-lg flex-1 px-4 py-6">{children}</main>
